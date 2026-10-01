@@ -1,6 +1,9 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"sort"
+)
 
 // /*
 // Question 2: Applying a discount to selected items (~12 minutes)
@@ -107,55 +110,106 @@ import "fmt"
 // 5. If the resulting net balance would be negative, return an error instead of a negative number.
 // 6. Amounts are in minor units (integers). Never use floating point.
 
+// type Transaction struct {
+// 	IdempotencyKey string
+// 	Type           string // "credit" or "debit"
+// 	Amount         int64
+// }
+
+// func SettleBatch(transactions []Transaction) (int64, error) {
+// 	// implement
+// 	var net_balance int64
+// 	processed_keys := make(map[string]string)
+
+// 	for _, transaction := range transactions {
+// 		fmt.Println("Processing ID: ", transaction.IdempotencyKey)
+
+// 		if _, seen := processed_keys[transaction.IdempotencyKey]; !seen {
+// 			processed_keys[transaction.IdempotencyKey] = transaction.IdempotencyKey
+// 			// process the transaction
+// 			switch transaction.Type {
+// 			case "credit":
+// 				net_balance += transaction.Amount
+// 			case "debit":
+// 				net_balance -= transaction.Amount
+// 			default:
+// 				fmt.Println("invalid transaction type for trnxID: ", transaction.IdempotencyKey)
+// 			}
+// 		}
+
+// 	}
+// 	if net_balance < 0 {
+// 		return 0, fmt.Errorf("negative balance err")
+// 	}
+// 	return net_balance, nil
+// }
+
+// 3
+// Rules:
+
+// Only "debit" transactions count toward the limit. "credit" transactions are ignored entirely, not even counted as noise.
+// The input is not guaranteed to be sorted by timestamp.
+// A violation occurs if any debit transaction t has at least maxCount debit transactions (including itself) whose timestamps fall within the inclusive range [t - windowSeconds, t].
+// Return true and the timestamp of the transaction that triggered the violation, as soon as you find one. If no violation exists anywhere in the batch, return false and 0.
+// Never use floating point. All timestamps and windows are integers already.
+
+// Example:
+
+// Debit timestamps: 100, 105, 110, 300
+// maxCount = 3, windowSeconds = 15
+
+// At t=110: the window is [95, 110]. Debits at 100, 105, and 110 all fall inside it — that's 3, meeting maxCount.
+// Violation triggers at t=110.
+
+// Return: (true, 110)
+
 type Transaction struct {
-	IdempotencyKey string
-	Type           string // "credit" or "debit"
-	Amount         int64
+	Type      string // "credit" or "debit"
+	Timestamp int64  // unix seconds
 }
 
-func SettleBatch(transactions []Transaction) (int64, error) {
+func ExceedsVelocityLimit(transactions []Transaction, maxCount int, windowSeconds int64) (bool, int64) {
 	// implement
-	var net_balance int64
-	processed_keys := make(map[string]string)
+	// First try to sort the []Transaction in ascending order
+	debitTimes := make([]int64, 0, len(transactions))
+	for _, t := range transactions {
+		if t.Type == "debit" {
+			debitTimes = append(debitTimes, t.Timestamp)
+		}
+	}
 
-	for _, transaction := range transactions {
-		fmt.Println("Processing ID: ", transaction.IdempotencyKey)
-		// if _, seen := processed_keys[transaction.IdempotencyKey]; seen {
-		// 	// Skip duplicate transaction and exit processedKeys looping
-		// 	// processed_keys[transaction.IdempotencyKey]
-		// 	fmt.Println("Duplicate transaction skipped")
-		// 	break
-		// }
-		if _, seen := processed_keys[transaction.IdempotencyKey]; !seen {
-			processed_keys[transaction.IdempotencyKey] = transaction.IdempotencyKey
-			// process the transaction
-			switch transaction.Type {
-			case "credit":
-				net_balance += transaction.Amount
-			case "debit":
-				net_balance -= transaction.Amount
-			default:
-				fmt.Println("invalid transaction type for trnxID: ", transaction.IdempotencyKey)
-			}
+	sort.Slice(debitTimes, func(i, j int) bool { return debitTimes[i] < debitTimes[j] })
+	left := 0
+	// loop through the transactions
+	for right, t := range debitTimes {
+		windowsEdge := debitTimes[right] - windowSeconds
+		for debitTimes[left] < windowsEdge {
+			//fmt.Println("Left forward")
+			left++
+		}
+		//fmt.Printf("left: %v and right: %v\n", left, right)
+		if right-left+1 >= maxCount {
+			return true, t
 		}
 
 	}
-	if net_balance < 0 {
-		return 0, fmt.Errorf("negative balance err")
-	}
-	return net_balance, nil
+	return false, 0
+
 }
 
 func main() {
 	transactions := []Transaction{
-		{IdempotencyKey: "abcd", Type: "credit", Amount: 10000},
-		{IdempotencyKey: "abcd", Type: "debit", Amount: 10000},
-		{IdempotencyKey: "abcdx", Type: "credit", Amount: 50000},
+		//{Type: "debit", Timestamp: 90},
+		{Type: "debit", Timestamp: 100},
+		{Type: "debit", Timestamp: 105},
+		{Type: "debit", Timestamp: 110},
+		// {Type: "credit", Timestamp: 115},
+		// {Type: "debit", Timestamp: 120},
+		// {Type: "credit", Timestamp: 121},
+		// {Type: "debit", Timestamp: 122},
+		// {Type: "debit", Timestamp: 123},
+		{Type: "debit", Timestamp: 124},
 	}
-	fmt.Println("ready")
-	balance, err := SettleBatch(transactions)
-	if err != nil {
-		fmt.Println(err)
-	}
-	fmt.Println(balance)
+	status, value := ExceedsVelocityLimit(transactions, 3, 13)
+	fmt.Printf("Status: %v and Value: %v\n", status, value)
 }
