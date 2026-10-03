@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"sort"
 )
 
 // /*
@@ -168,48 +167,97 @@ type Transaction struct {
 	Timestamp int64  // unix seconds
 }
 
-func ExceedsVelocityLimit(transactions []Transaction, maxCount int, windowSeconds int64) (bool, int64) {
-	// implement
-	// First try to sort the []Transaction in ascending order
-	debitTimes := make([]int64, 0, len(transactions))
-	for _, t := range transactions {
-		if t.Type == "debit" {
-			debitTimes = append(debitTimes, t.Timestamp)
+// func ExceedsVelocityLimit(transactions []Transaction, maxCount int, windowSeconds int64) (bool, int64) {
+// 	// implement
+// 	// First try to sort the []Transaction in ascending order
+// 	debitTimes := make([]int64, 0, len(transactions))
+// 	for _, t := range transactions {
+// 		if t.Type == "debit" {
+// 			debitTimes = append(debitTimes, t.Timestamp)
+// 		}
+// 	}
+
+// 	sort.Slice(debitTimes, func(i, j int) bool { return debitTimes[i] < debitTimes[j] })
+// 	left := 0
+// 	// loop through the transactions
+// 	for right, t := range debitTimes {
+// 		windowsEdge := debitTimes[right] - windowSeconds
+// 		for debitTimes[left] < windowsEdge {
+// 			//fmt.Println("Left forward")
+// 			left++
+// 		}
+// 		//fmt.Printf("left: %v and right: %v\n", left, right)
+// 		if right-left+1 >= maxCount {
+// 			return true, t
+// 		}
+
+// 	}
+// 	return false, 0
+
+// }
+func doWork(done <-chan bool) {
+	for {
+		select {
+		case <-done:
+			return
+		default:
+			fmt.Println("Doing work!")
 		}
 	}
-
-	sort.Slice(debitTimes, func(i, j int) bool { return debitTimes[i] < debitTimes[j] })
-	left := 0
-	// loop through the transactions
-	for right, t := range debitTimes {
-		windowsEdge := debitTimes[right] - windowSeconds
-		for debitTimes[left] < windowsEdge {
-			//fmt.Println("Left forward")
-			left++
-		}
-		//fmt.Printf("left: %v and right: %v\n", left, right)
-		if right-left+1 >= maxCount {
-			return true, t
-		}
-
-	}
-	return false, 0
-
 }
-
 func main() {
-	transactions := []Transaction{
-		//{Type: "debit", Timestamp: 90},
-		{Type: "debit", Timestamp: 100},
-		{Type: "debit", Timestamp: 105},
-		{Type: "debit", Timestamp: 110},
-		// {Type: "credit", Timestamp: 115},
-		// {Type: "debit", Timestamp: 120},
-		// {Type: "credit", Timestamp: 121},
-		// {Type: "debit", Timestamp: 122},
-		// {Type: "debit", Timestamp: 123},
-		{Type: "debit", Timestamp: 124},
+	// 	transactions := []Transaction{
+	// 		//{Type: "debit", Timestamp: 90},
+	// 		{Type: "debit", Timestamp: 100},
+	// 		{Type: "debit", Timestamp: 105},
+	// 		{Type: "debit", Timestamp: 110},
+	// 		// {Type: "credit", Timestamp: 115},
+	// 		// {Type: "debit", Timestamp: 120},
+	// 		// {Type: "credit", Timestamp: 121},
+	// 		// {Type: "debit", Timestamp: 122},
+	// 		// {Type: "debit", Timestamp: 123},
+	// 		{Type: "debit", Timestamp: 124},
+	// 	}
+	// 	status, value := ExceedsVelocityLimit(transactions, 3, 13)
+	// 	fmt.Printf("Status: %v and Value: %v\n", status, value)
+
+	chars := []string{"a", "b", "c"}
+	// myChannel := make(chan string)
+	// nextChannel := make(chan string)
+	channelChars := make(chan string, 3)
+
+	// go func() {
+	// 	nextChannel <- "next please"
+	// }()
+	// go func() {
+	// 	myChannel <- "hello"
+	// }()
+
+	for _, s := range chars {
+		//fmt.Println("sent: ", s)
+
+		channelChars <- s
 	}
-	status, value := ExceedsVelocityLimit(transactions, 3, 13)
-	fmt.Printf("Status: %v and Value: %v\n", status, value)
+
+	// select {
+	// case myChannelMsg := <-myChannel:
+	// 	fmt.Println(myChannelMsg)
+	// case nextChannelMsg := <-nextChannel:
+	// 	fmt.Println(nextChannelMsg)
+	// }
+
+	// done := make(chan bool)
+
+	// go doWork(done)
+	// //time.Sleep(1 * time.Second)
+
+	// close(done)
+	close(channelChars)
+
+	for data := range channelChars {
+		fmt.Println("data: ", data)
+	}
+
+	fmt.Println("Ready")
+
 }
